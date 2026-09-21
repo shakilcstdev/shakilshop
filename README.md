@@ -8,7 +8,7 @@
 
 A modern, feature-rich e-commerce application built with Next.js 16, TypeScript, Sanity CMS, Clerk Authentication, and Stripe/Clerk Payments. This free version includes core e-commerce features with premium features available in the paid version.
 
-![ShakilShop Pro Preview](./public/preview.png)
+
 
 ## ✨ Features
 
