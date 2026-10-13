@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,10 +15,6 @@ import {
 } from "@/components/ui/select";
 import { AnalyticsSkeleton } from "@/components/admin/SkeletonLoaders";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
@@ -25,8 +22,10 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
 } from "recharts";
 import {
   TrendingUp,
@@ -86,41 +85,44 @@ const AdminAnalytics = () => {
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState("30d");
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [timeRange]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const response = await fetch(`/api/admin/analytics?period=${timeRange}`);
+      const response = await fetch(
+        `/api/admin/analytics?period=${timeRange}`,
+        { cache: "no-store" }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: AnalyticsData & { error?: string } =
+        await response.json();
 
       if (data.error) {
         throw new Error(data.error);
       }
 
       setAnalytics(data);
-    } catch (error) {
-      console.error("Error fetching analytics:", error);
+    } catch (err) {
+      console.error("Error fetching analytics:", err);
       setError(
-        error instanceof Error ? error.message : "Failed to fetch analytics"
+        err instanceof Error
+          ? err.message
+          : "Failed to fetch analytics"
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
 
-  // Chart colors
-  const COLORS = ["#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6"];
+  useEffect(() => {
+    void fetchAnalytics();
+  }, [fetchAnalytics]);
 
-  // Prepare chart data
   const prepareOrderStatusChartData = () => {
     if (!analytics?.orders) return [];
 
@@ -130,7 +132,11 @@ const AdminAnalytics = () => {
         value: analytics.orders.completed,
         color: "#10B981",
       },
-      { name: "Pending", value: analytics.orders.pending, color: "#F59E0B" },
+      {
+        name: "Pending",
+        value: analytics.orders.pending,
+        color: "#F59E0B",
+      },
       {
         name: "Cancelled",
         value: analytics.orders.cancelled,
@@ -142,10 +148,10 @@ const AdminAnalytics = () => {
   const prepareTopProductsChartData = () => {
     if (!analytics?.topProducts) return [];
 
-    return analytics.topProducts.map((product, index) => ({
+    return analytics.topProducts.map((product) => ({
       name:
         product.name && product.name.length > 15
-          ? product.name.substring(0, 15) + "..."
+          ? `${product.name.substring(0, 15)}...`
           : product.name || "Unknown Product",
       revenue: product.revenue,
       sales: product.sales,
@@ -170,35 +176,44 @@ const AdminAnalytics = () => {
     subtitle?: string;
   }) => {
     const isPositive = change >= 0;
+
     const formatValue = (val: number) => {
-      if (format === "currency") return `$${val.toLocaleString()}`;
+      if (format === "currency") {
+        return `$${val.toLocaleString()}`;
+      }
+
       return val.toLocaleString();
     };
 
     return (
-      <Card className="group hover:shadow-xl transition-all duration-300 border-shop_light_green/20 hover:border-shop_light_green/40 overflow-hidden">
-        <div className={`h-1 bg-gradient-to-r ${color}`}></div>
+      <Card className="group overflow-hidden border-shop_light_green/20 transition-all duration-300 hover:border-shop_light_green/40 hover:shadow-xl">
+        <div className={`h-1 bg-gradient-to-r ${color}`} />
+
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-light-color flex items-center justify-between">
+          <CardTitle className="flex items-center justify-between text-sm font-medium text-light-color">
             {title}
-            <Icon className="w-4 h-4" />
+            <Icon className="h-4 w-4" />
           </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-3">
           <div className="space-y-1">
             <div className="text-2xl font-bold text-dark-color">
               {formatValue(value)}
             </div>
+
             {subtitle && (
               <div className="text-xs text-light-color">{subtitle}</div>
             )}
           </div>
+
           <div className="flex items-center gap-2">
             {isPositive ? (
-              <ArrowUpRight className="w-4 h-4 text-green-500" />
+              <ArrowUpRight className="h-4 w-4 text-green-500" />
             ) : (
-              <ArrowDownRight className="w-4 h-4 text-red-500" />
+              <ArrowDownRight className="h-4 w-4 text-red-500" />
             )}
+
             <Badge
               variant={isPositive ? "default" : "destructive"}
               className="text-xs"
@@ -206,7 +221,10 @@ const AdminAnalytics = () => {
               {isPositive ? "+" : ""}
               {change}%
             </Badge>
-            <span className="text-xs text-light-color">vs last period</span>
+
+            <span className="text-xs text-light-color">
+              vs last period
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -219,18 +237,20 @@ const AdminAnalytics = () => {
 
   if (error) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         <Card className="border-red-200">
           <CardHeader>
-            <CardTitle className="text-red-600 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-red-600">
+              <BarChart3 className="h-5 w-5" />
               Error Loading Analytics
             </CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <p className="text-red-500">{error}</p>
+
             <Button
-              onClick={fetchAnalytics}
+              onClick={() => void fetchAnalytics()}
               className="bg-red-600 hover:bg-red-700"
             >
               Try Again
@@ -241,25 +261,31 @@ const AdminAnalytics = () => {
     );
   }
 
+  const orderStatusData = prepareOrderStatusChartData();
+  const topProductsData = prepareTopProductsChartData();
+
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-dark-color flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-shop_light_green" />
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-dark-color">
+            <BarChart3 className="h-8 w-8 text-shop_light_green" />
             Business Analytics
           </h1>
-          <p className="text-light-color mt-1">
+
+          <p className="mt-1 text-light-color">
             Comprehensive insights into your business performance
           </p>
         </div>
+
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40">
-              <Calendar className="w-4 h-4 mr-2" />
+              <Calendar className="mr-2 h-4 w-4" />
               <SelectValue />
             </SelectTrigger>
+
             <SelectContent>
               <SelectItem value="7d">Last 7 days</SelectItem>
               <SelectItem value="30d">Last 30 days</SelectItem>
@@ -267,28 +293,31 @@ const AdminAnalytics = () => {
               <SelectItem value="365d">Last year</SelectItem>
             </SelectContent>
           </Select>
+
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchAnalytics}
+            onClick={() => void fetchAnalytics()}
+            disabled={loading}
+            aria-label="Refresh analytics"
             className="border-shop_light_green/20 hover:border-shop_light_green"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0 }}
+          transition={{ duration: 0.3 }}
         >
           <StatCard
             title="Total Revenue"
-            value={analytics?.revenue?.total || 0}
-            change={analytics?.revenue?.change || 0}
+            value={analytics?.revenue?.total ?? 0}
+            change={analytics?.revenue?.change ?? 0}
             icon={DollarSign}
             color="from-green-500 to-emerald-600"
             format="currency"
@@ -302,11 +331,11 @@ const AdminAnalytics = () => {
         >
           <StatCard
             title="Total Orders"
-            value={analytics?.orders?.total || 0}
-            change={analytics?.orders?.change || 0}
+            value={analytics?.orders?.total ?? 0}
+            change={analytics?.orders?.change ?? 0}
             icon={ShoppingCart}
             color="from-blue-500 to-cyan-600"
-            subtitle={`${analytics?.orders?.pending || 0} pending`}
+            subtitle={`${analytics?.orders?.pending ?? 0} pending`}
           />
         </motion.div>
 
@@ -317,11 +346,11 @@ const AdminAnalytics = () => {
         >
           <StatCard
             title="Total Customers"
-            value={analytics?.customers?.total || 0}
-            change={analytics?.customers?.change || 0}
+            value={analytics?.customers?.total ?? 0}
+            change={analytics?.customers?.change ?? 0}
             icon={Users}
             color="from-purple-500 to-pink-600"
-            subtitle={`${analytics?.customers?.new || 0} new this period`}
+            subtitle={`${analytics?.customers?.new ?? 0} new this period`}
           />
         </motion.div>
 
@@ -332,18 +361,18 @@ const AdminAnalytics = () => {
         >
           <StatCard
             title="Total Products"
-            value={analytics?.products?.total || 0}
-            change={analytics?.products?.change || 0}
+            value={analytics?.products?.total ?? 0}
+            change={analytics?.products?.change ?? 0}
             icon={Package}
             color="from-orange-500 to-red-600"
-            subtitle={`${analytics?.products?.lowStock || 0} low stock`}
+            subtitle={`${analytics?.products?.lowStock ?? 0} low stock`}
           />
         </motion.div>
       </div>
 
       {/* Detailed Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Order Status Breakdown */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Order Status */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -352,38 +381,47 @@ const AdminAnalytics = () => {
           <Card className="border-shop_light_green/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <PieChartIcon className="w-5 h-5 text-shop_light_green" />
+                <PieChartIcon className="h-5 w-5 text-shop_light_green" />
                 Order Status Distribution
               </CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-4">
-              {prepareOrderStatusChartData().length > 0 ? (
+              {orderStatusData.length > 0 ? (
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={prepareOrderStatusChartData()}
+                        data={orderStatusData}
                         cx="50%"
                         cy="45%"
                         outerRadius={100}
                         innerRadius={40}
                         paddingAngle={3}
-                        fill="#8884d8"
                         dataKey="value"
+                        nameKey="name"
                       >
-                        {prepareOrderStatusChartData().map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        {orderStatusData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
                         ))}
                       </Pie>
+
                       <Tooltip
-                        formatter={(value, name) => [`${value} orders`, name]}
+                        formatter={(value, name) => [
+                          `${value ?? 0} orders`,
+                          String(name ?? ""),
+                        ]}
                       />
+
                       <Legend
                         verticalAlign="bottom"
                         height={36}
                         formatter={(value, entry) => (
                           <span
-                            style={{ color: entry.color, fontSize: "14px" }}
+                            style={{
+                              color: entry.color,
+                              fontSize: "14px",
+                            }}
                           >
                             {value}
                           </span>
@@ -393,46 +431,50 @@ const AdminAnalytics = () => {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-center py-8 text-light-color">
-                  <PieChartIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <div className="py-8 text-center text-light-color">
+                  <PieChartIcon className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   <p className="text-sm">No order data available</p>
                 </div>
               )}
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-sm font-medium">Completed</span>
+                {[
+                  {
+                    label: "Completed",
+                    value: analytics?.orders?.completed ?? 0,
+                    color: "bg-green-500",
+                  },
+                  {
+                    label: "Pending",
+                    value: analytics?.orders?.pending ?? 0,
+                    color: "bg-yellow-500",
+                  },
+                  {
+                    label: "Cancelled",
+                    value: analytics?.orders?.cancelled ?? 0,
+                    color: "bg-red-500",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`h-3 w-3 rounded-full ${item.color}`} />
+                      <span className="text-sm font-medium">
+                        {item.label}
+                      </span>
+                    </div>
+
+                    <Badge variant="outline">{item.value}</Badge>
                   </div>
-                  <Badge variant="outline">
-                    {analytics?.orders?.completed || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <span className="text-sm font-medium">Pending</span>
-                  </div>
-                  <Badge variant="outline">
-                    {analytics?.orders?.pending || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-sm font-medium">Cancelled</span>
-                  </div>
-                  <Badge variant="outline">
-                    {analytics?.orders?.cancelled || 0}
-                  </Badge>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Top Products Chart */}
+        {/* Top Products */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -441,16 +483,18 @@ const AdminAnalytics = () => {
           <Card className="border-shop_light_green/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-shop_light_green" />
+                <TrendingUp className="h-5 w-5 text-shop_light_green" />
                 Top Performing Products
               </CardTitle>
             </CardHeader>
+
             <CardContent>
-              {prepareTopProductsChartData().length > 0 ? (
+              {topProductsData.length > 0 ? (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={prepareTopProductsChartData()}>
+                    <BarChart data={topProductsData}>
                       <CartesianGrid strokeDasharray="3 3" />
+
                       <XAxis
                         dataKey="name"
                         angle={-45}
@@ -458,22 +502,34 @@ const AdminAnalytics = () => {
                         height={60}
                         fontSize={12}
                       />
+
                       <YAxis />
+
                       <Tooltip
-                        formatter={(value, name) => [
-                          name === "revenue"
-                            ? `$${value.toLocaleString()}`
-                            : value,
-                          name === "revenue" ? "Revenue" : "Sales",
-                        ]}
+                        formatter={(value, name) => {
+                          const numericValue =
+                            typeof value === "number" ? value : 0;
+
+                          return [
+                            name === "revenue"
+                              ? `$${numericValue.toLocaleString()}`
+                              : numericValue,
+                            name === "revenue" ? "Revenue" : "Sales",
+                          ];
+                        }}
                       />
-                      <Bar dataKey="revenue" fill="#10B981" name="revenue" />
+
+                      <Bar
+                        dataKey="revenue"
+                        fill="#10B981"
+                        name="revenue"
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-center py-8 text-light-color">
-                  <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <div className="py-8 text-center text-light-color">
+                  <Package className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   <p className="text-sm">No product data available</p>
                 </div>
               )}
@@ -482,7 +538,7 @@ const AdminAnalytics = () => {
         </motion.div>
       </div>
 
-      {/* Revenue Trend Chart */}
+      {/* Revenue Overview */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -491,34 +547,40 @@ const AdminAnalytics = () => {
         <Card className="border-shop_light_green/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-shop_light_green" />
+              <TrendingUp className="h-5 w-5 text-shop_light_green" />
               Revenue Overview
             </CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-lg bg-green-50 p-4 text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  ${analytics?.revenue?.total.toLocaleString() || 0}
+                  ${(analytics?.revenue?.total ?? 0).toLocaleString()}
                 </div>
                 <div className="text-sm text-green-500">Total Revenue</div>
               </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
+
+              <div className="rounded-lg bg-blue-50 p-4 text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {analytics?.orders?.total || 0}
+                  {(analytics?.orders?.total ?? 0).toLocaleString()}
                 </div>
                 <div className="text-sm text-blue-500">Total Orders</div>
               </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
+
+              <div className="rounded-lg bg-purple-50 p-4 text-center">
                 <div className="text-2xl font-bold text-purple-600">
                   $
                   {analytics?.revenue?.total && analytics?.orders?.total
                     ? (
-                        analytics.revenue.total / analytics.orders.total
+                        analytics.revenue.total /
+                        analytics.orders.total
                       ).toFixed(2)
-                    : 0}
+                    : "0.00"}
                 </div>
-                <div className="text-sm text-purple-500">Avg Order Value</div>
+                <div className="text-sm text-purple-500">
+                  Avg Order Value
+                </div>
               </div>
             </div>
           </CardContent>
@@ -534,39 +596,44 @@ const AdminAnalytics = () => {
         <Card className="border-shop_light_green/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-shop_light_green" />
+              <Activity className="h-5 w-5 text-shop_light_green" />
               Recent Business Activity
             </CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="space-y-3">
-              {analytics?.recentActivity?.slice(0, 8).map((activity, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 border border-shop_light_green/10 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-shop_light_green rounded-full"></div>
-                    <span className="text-sm text-dark-color">
-                      {activity.action}
-                    </span>
+            {analytics?.recentActivity &&
+            analytics.recentActivity.length > 0 ? (
+              <div className="space-y-3">
+                {analytics.recentActivity.slice(0, 8).map((activity, index) => (
+                  <div
+                    key={`${activity.action}-${index}`}
+                    className="flex items-center justify-between rounded-lg border border-shop_light_green/10 p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full bg-shop_light_green" />
+                      <span className="text-sm text-dark-color">
+                        {activity.action}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {activity.value}
+                      </Badge>
+                      <span className="text-xs text-light-color">
+                        {activity.time}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {activity.value}
-                    </Badge>
-                    <span className="text-xs text-light-color">
-                      {activity.time}
-                    </span>
-                  </div>
-                </div>
-              )) || (
-                <div className="text-center py-6 text-light-color">
-                  <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No recent activity available</p>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-light-color">
+                <Activity className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <p className="text-sm">No recent activity available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

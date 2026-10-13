@@ -56,17 +56,19 @@ export default async function ProfilePage() {
 
   // Fetch user data from Sanity
   let sanityUser: SanityUser | null = null;
+
   try {
     const { data } = await sanityFetch({
       query: USER_BY_CLERK_ID_QUERY,
       params: { clerkUserId: userId },
     });
-    sanityUser = data;
+
+    sanityUser = (data as SanityUser | null) ?? null;
   } catch (error) {
     console.error("Error fetching user from Sanity:", error);
   }
 
-  // Combine Clerk and Sanity data - serialize Clerk objects to plain data
+  // Combine Clerk and Sanity data
   const userData = {
     clerk: {
       id: clerkUser.id,

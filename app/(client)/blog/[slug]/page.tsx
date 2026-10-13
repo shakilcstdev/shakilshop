@@ -2,11 +2,13 @@ import Container from "@/components/Container";
 import DynamicBreadcrumb from "@/components/DynamicBreadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  SINGLE_BLOG_QUERYResult,
-  OTHERS_BLOG_QUERYResult,
-} from "@/sanity.types";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SINGLE_BLOG_QUERYResult } from "@/sanity.types";
 import { urlFor } from "@/sanity/lib/image";
 import {
   getBlogCategories,
@@ -37,16 +39,31 @@ const SingleBlogPage = async ({
   params: Promise<{ slug: string }>;
 }) => {
   const { slug } = await params;
-  const blog = (await getSingleBlog(slug)) as SINGLE_BLOG_QUERYResult | null;
-  if (!blog) return notFound();
 
-  // Calculate reading time based on content length
+  const blog = (await getSingleBlog(
+    slug
+  )) as SINGLE_BLOG_QUERYResult | null;
+
+  if (!blog) {
+    notFound();
+  }
+
   const calculateReadingTime = (body: unknown[]) => {
     if (!body) return 5;
+
     let wordCount = 0;
+
     body.forEach((block: unknown) => {
-      if (typeof block === "object" && block !== null && "children" in block) {
-        const blockObj = block as { _type?: string; children?: unknown[] };
+      if (
+        typeof block === "object" &&
+        block !== null &&
+        "children" in block
+      ) {
+        const blockObj = block as {
+          _type?: string;
+          children?: unknown[];
+        };
+
         if (blockObj._type === "block" && blockObj.children) {
           blockObj.children.forEach((child: unknown) => {
             if (
@@ -55,67 +72,62 @@ const SingleBlogPage = async ({
               "text" in child
             ) {
               const childObj = child as { text?: string };
+
               if (childObj.text) {
-                wordCount += childObj.text.split(" ").length;
+                wordCount += childObj.text
+                  .trim()
+                  .split(/\s+/)
+                  .filter(Boolean).length;
               }
             }
           });
         }
       }
     });
-    return Math.ceil(wordCount / 200); // 200 words per minute
+
+    return Math.max(1, Math.ceil(wordCount / 200));
   };
 
-  const readingTime = calculateReadingTime(blog?.body || []);
+  const readingTime = calculateReadingTime(blog.body || []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-shop_light_bg to-white">
-      {/* Breadcrumb */}
       <Container className="pt-6">
         <DynamicBreadcrumb
           customItems={[
             { label: "Blog", href: "/blog" },
-            { label: blog?.title || "Article" },
+            { label: blog.title || "Article" },
           ]}
         />
       </Container>
 
       <Container className="py-8 sm:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Main Content */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
           <div className="lg:col-span-3">
             <article className="space-y-8">
-              {/* Article Header */}
               <div className="space-y-6">
-                {/* Categories */}
-                {blog?.blogcategories && blog.blogcategories.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {blog.blogcategories.map(
-                      (
-                        category: { title: string | null; slug: string | null },
-                        index: number
-                      ) => (
+                {blog.blogcategories &&
+                  blog.blogcategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {blog.blogcategories.map((category, index) => (
                         <Badge
                           key={index}
                           className="bg-shop_dark_green hover:bg-shop_light_green"
                         >
                           {category.title}
                         </Badge>
-                      )
-                    )}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                {/* Title */}
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-shop_dark_green leading-tight">
-                  {blog?.title}
+                <h1 className="text-3xl font-bold leading-tight text-shop_dark_green sm:text-4xl md:text-5xl">
+                  {blog.title}
                 </h1>
 
-                {/* Meta Information */}
                 <div className="flex flex-wrap items-center gap-6 text-sm text-gray-600">
-                  {blog?.author?.name && (
+                  {blog.author?.name && (
                     <div className="flex items-center gap-2">
-                      {blog?.author?.image && (
+                      {blog.author.image && (
                         <Image
                           src={urlFor(blog.author.image)
                             .width(32)
@@ -127,6 +139,7 @@ const SingleBlogPage = async ({
                           className="rounded-full"
                         />
                       )}
+
                       <div className="flex items-center gap-1">
                         <User size={16} />
                         <span className="font-medium text-shop_dark_green">
@@ -139,7 +152,9 @@ const SingleBlogPage = async ({
                   <div className="flex items-center gap-1">
                     <Calendar size={16} />
                     <time>
-                      {dayjs(blog.publishedAt).format("MMMM D, YYYY")}
+                      {blog.publishedAt
+                        ? dayjs(blog.publishedAt).format("MMMM D, YYYY")
+                        : "Date unavailable"}
                     </time>
                   </div>
 
@@ -154,8 +169,7 @@ const SingleBlogPage = async ({
                   </div>
                 </div>
 
-                {/* Social Actions */}
-                <div className="flex items-center gap-4 pt-4 border-t border-gray-200">
+                <div className="flex flex-wrap items-center gap-4 border-t border-gray-200 pt-4">
                   <Button
                     variant="outline"
                     size="sm"
@@ -164,6 +178,7 @@ const SingleBlogPage = async ({
                     <Heart size={16} className="mr-2" />
                     Like
                   </Button>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -172,6 +187,7 @@ const SingleBlogPage = async ({
                     <MessageCircle size={16} className="mr-2" />
                     Comment
                   </Button>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -183,22 +199,23 @@ const SingleBlogPage = async ({
                 </div>
               </div>
 
-              {/* Featured Image */}
-              {blog?.mainImage && (
+              {blog.mainImage && (
                 <div className="relative overflow-hidden rounded-xl shadow-lg">
                   <Image
-                    src={urlFor(blog.mainImage).width(1200).height(600).url()}
+                    src={urlFor(blog.mainImage)
+                      .width(1200)
+                      .height(600)
+                      .url()}
                     alt={blog.title || "Blog Image"}
                     width={1200}
                     height={600}
-                    className="w-full h-[400px] sm:h-[500px] object-cover"
+                    className="h-[400px] w-full object-cover sm:h-[500px]"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                 </div>
               )}
 
-              {/* Article Content */}
-              <Card className="shadow-lg border-0">
+              <Card className="border-0 shadow-lg">
                 <CardContent className="p-8 sm:p-12">
                   <div className="prose prose-lg max-w-none">
                     {blog.body && (
@@ -212,12 +229,12 @@ const SingleBlogPage = async ({
                               </p>
                             ),
                             h2: ({ children }) => (
-                              <h2 className="my-8 text-2xl sm:text-3xl font-bold text-shop_dark_green first:mt-0 last:mb-0">
+                              <h2 className="my-8 text-2xl font-bold text-shop_dark_green first:mt-0 last:mb-0 sm:text-3xl">
                                 {children}
                               </h2>
                             ),
                             h3: ({ children }) => (
-                              <h3 className="my-6 text-xl sm:text-2xl font-semibold text-shop_dark_green first:mt-0 last:mb-0">
+                              <h3 className="my-6 text-xl font-semibold text-shop_dark_green first:mt-0 last:mb-0 sm:text-2xl">
                                 {children}
                               </h3>
                             ),
@@ -227,23 +244,25 @@ const SingleBlogPage = async ({
                               </h4>
                             ),
                             blockquote: ({ children }) => (
-                              <blockquote className="my-8 border-l-4 border-shop_light_green bg-shop_light_bg pl-6 py-4 text-base italic text-gray-700 first:mt-0 last:mb-0">
+                              <blockquote className="my-8 border-l-4 border-shop_light_green bg-shop_light_bg py-4 pl-6 text-base italic text-gray-700 first:mt-0 last:mb-0">
                                 {children}
                               </blockquote>
                             ),
                           },
+
                           types: {
                             image: ({ value }) => (
                               <div className="my-8 overflow-hidden rounded-lg shadow-md">
                                 <Image
-                                  alt={value.alt || ""}
+                                  alt={value.alt || "Article image"}
                                   src={urlFor(value).width(800).url()}
-                                  className="w-full h-auto"
+                                  className="h-auto w-full"
                                   width={800}
                                   height={600}
                                 />
                               </div>
                             ),
+
                             separator: ({ value }) => {
                               switch (value.style) {
                                 case "line":
@@ -257,18 +276,20 @@ const SingleBlogPage = async ({
                               }
                             },
                           },
+
                           list: {
                             bullet: ({ children }) => (
-                              <ul className="my-6 list-disc pl-6 space-y-2 text-gray-700">
+                              <ul className="my-6 list-disc space-y-2 pl-6 text-gray-700">
                                 {children}
                               </ul>
                             ),
                             number: ({ children }) => (
-                              <ol className="my-6 list-decimal pl-6 space-y-2 text-gray-700">
+                              <ol className="my-6 list-decimal space-y-2 pl-6 text-gray-700">
                                 {children}
                               </ol>
                             ),
                           },
+
                           listItem: {
                             bullet: ({ children }) => (
                               <li className="pl-2">{children}</li>
@@ -277,25 +298,44 @@ const SingleBlogPage = async ({
                               <li className="pl-2">{children}</li>
                             ),
                           },
+
                           marks: {
                             strong: ({ children }) => (
                               <strong className="font-semibold text-shop_dark_green">
                                 {children}
                               </strong>
                             ),
+
                             code: ({ children }) => (
-                              <code className="bg-shop_light_bg px-2 py-1 rounded text-sm font-mono text-shop_dark_green">
+                              <code className="rounded bg-shop_light_bg px-2 py-1 font-mono text-sm text-shop_dark_green">
                                 {children}
                               </code>
                             ),
-                            link: ({ value, children }) => (
-                              <Link
-                                href={value.href}
-                                className="font-medium text-shop_light_green hover:text-shop_dark_green underline decoration-shop_light_green underline-offset-4 hover:decoration-shop_dark_green transition-colors"
-                              >
-                                {children}
-                              </Link>
-                            ),
+
+                            link: ({ value, children }) => {
+                              const href = value?.href;
+
+                              if (!href) {
+                                return <>{children}</>;
+                              }
+
+                              const isExternal = /^https?:\/\//i.test(href);
+
+                              return (
+                                <Link
+                                  href={href}
+                                  target={isExternal ? "_blank" : undefined}
+                                  rel={
+                                    isExternal
+                                      ? "noopener noreferrer"
+                                      : undefined
+                                  }
+                                  className="font-medium text-shop_light_green underline decoration-shop_light_green underline-offset-4 transition-colors hover:text-shop_dark_green hover:decoration-shop_dark_green"
+                                >
+                                  {children}
+                                </Link>
+                              );
+                            },
                           },
                         }}
                       />
@@ -304,8 +344,7 @@ const SingleBlogPage = async ({
                 </CardContent>
               </Card>
 
-              {/* Navigation */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-8 border-t border-gray-200">
+              <div className="flex flex-col items-start justify-between gap-4 border-t border-gray-200 pt-8 sm:flex-row sm:items-center">
                 <Button
                   asChild
                   variant="outline"
@@ -317,7 +356,7 @@ const SingleBlogPage = async ({
                   </Link>
                 </Button>
 
-                <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                   <span>Share this article:</span>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline">
@@ -335,7 +374,6 @@ const SingleBlogPage = async ({
             </article>
           </div>
 
-          {/* Sidebar */}
           <BlogSidebar slug={slug} />
         </div>
       </Container>
@@ -349,22 +387,22 @@ const BlogSidebar = async ({ slug }: { slug: string }) => {
 
   return (
     <div className="space-y-6">
-      {/* Categories Card */}
-      <Card className="shadow-lg border-0">
+      <Card className="border-0 shadow-lg">
         <CardHeader>
-          <CardTitle className="text-lg font-bold text-shop_dark_green flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg font-bold text-shop_dark_green">
             <BookOpen size={18} />
             Blog Categories
           </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-3">
           {categories?.map(({ blogcategories }, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-2 rounded-lg hover:bg-shop_light_bg transition-colors cursor-pointer group"
+              className="group flex cursor-pointer items-center justify-between rounded-lg p-2 transition-colors hover:bg-shop_light_bg"
             >
-              <p className="text-gray-700 group-hover:text-shop_dark_green transition-colors">
-                {blogcategories && blogcategories[0]?.title}
+              <p className="text-gray-700 transition-colors group-hover:text-shop_dark_green">
+                {blogcategories?.[0]?.title}
               </p>
               <Badge variant="secondary" className="text-xs">
                 1
@@ -374,68 +412,71 @@ const BlogSidebar = async ({ slug }: { slug: string }) => {
         </CardContent>
       </Card>
 
-      {/* Latest Posts Card */}
-      <Card className="shadow-lg border-0">
+      <Card className="border-0 shadow-lg">
         <CardHeader>
-          <CardTitle className="text-lg font-bold text-shop_dark_green flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg font-bold text-shop_dark_green">
             <BookOpen size={18} />
             Latest Posts
           </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          {blogs?.map(
-            (
-              blogItem: OTHERS_BLOG_QUERYResult[0] & { publishedAt?: string },
-              index: number
-            ) => (
+          {blogs?.map((blogItem, index) => {
+            const blogSlug = blogItem?.slug?.current;
+
+            if (!blogSlug) {
+              return null;
+            }
+
+            return (
               <Link
-                href={`/blog/${blogItem?.slug?.current}`}
-                key={index}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-shop_light_bg transition-all duration-200 group"
+                href={"/blog/" + blogSlug}
+                key={blogSlug || index}
+                className="group flex items-start gap-3 rounded-lg p-3 transition-all duration-200 hover:bg-shop_light_bg"
               >
-                {blogItem?.mainImage && (
+                {blogItem.mainImage && (
                   <div className="flex-shrink-0">
                     <Image
                       src={urlFor(blogItem.mainImage)
                         .width(80)
                         .height(80)
                         .url()}
-                      alt="blog thumbnail"
+                      alt={blogItem.title || "Blog thumbnail"}
                       width={80}
                       height={80}
-                      className="w-16 h-16 rounded-lg object-cover border border-gray-200 group-hover:border-shop_light_green transition-colors"
+                      className="h-16 w-16 rounded-lg border border-gray-200 object-cover transition-colors group-hover:border-shop_light_green"
                     />
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <h4 className="line-clamp-2 text-sm font-medium text-gray-800 group-hover:text-shop_dark_green transition-colors">
-                    {blogItem?.title}
+
+                <div className="min-w-0 flex-1">
+                  <h4 className="line-clamp-2 text-sm font-medium text-gray-800 transition-colors group-hover:text-shop_dark_green">
+                    {blogItem.title}
                   </h4>
-                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                    <Calendar size={12} />
-                    {dayjs(blogItem?.publishedAt).format("MMM D, YYYY")}
-                  </p>
                 </div>
+
                 <ArrowRight
                   size={16}
-                  className="flex-shrink-0 text-gray-400 group-hover:text-shop_light_green transition-colors"
+                  className="flex-shrink-0 text-gray-400 transition-colors group-hover:text-shop_light_green"
                 />
               </Link>
-            )
-          )}
+            );
+          })}
         </CardContent>
       </Card>
 
-      {/* Newsletter Signup */}
-      <Card className="shadow-lg border-0 bg-gradient-to-br from-shop_light_pink to-light-orange/20">
+      <Card className="border-0 bg-gradient-to-br from-shop_light_pink to-light-orange/20 shadow-lg">
         <CardContent className="p-6 text-center">
-          <BookOpen className="w-12 h-12 text-shop_dark_green mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-shop_dark_green mb-2">
+          <BookOpen className="mx-auto mb-4 h-12 w-12 text-shop_dark_green" />
+
+          <h3 className="mb-2 text-lg font-bold text-shop_dark_green">
             Stay Updated
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+
+          <p className="mb-4 text-sm text-gray-600">
             Get the latest articles delivered to your inbox.
           </p>
+
           <Button
             className="w-full bg-shop_dark_green hover:bg-shop_light_green"
             size="sm"

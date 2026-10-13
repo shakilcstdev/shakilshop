@@ -152,6 +152,7 @@ export const USER_ORDERS_QUERY = `
       product -> {
         _id,
         name,
+        slug,
         image {
           asset -> {
             _id,
@@ -185,6 +186,7 @@ export const ORDER_BY_ID_QUERY = `
         _id,
         name,
         slug,
+        "images": select(defined(image) => [image], []),
         image {
           asset -> {
             _id,
@@ -236,6 +238,7 @@ export const getUserByClerkId = async (clerkUserId: string) => {
       query: USER_BY_CLERK_ID_QUERY,
       params: { clerkUserId },
     });
+
     return data;
   } catch (error) {
     console.error("Error fetching user by Clerk ID:", error);
@@ -249,6 +252,7 @@ export const getUserAddresses = async (userId: string) => {
       query: USER_ADDRESSES_QUERY,
       params: { userId },
     });
+
     return data ?? [];
   } catch (error) {
     console.error("Error fetching user addresses:", error);
@@ -262,7 +266,9 @@ export const getUserCart = async (clerkUserId: string) => {
       query: USER_CART_QUERY,
       params: { clerkUserId },
     });
-    return data?.cart ?? [];
+
+    const result = data as { cart?: unknown[] } | null;
+    return result?.cart ?? [];
   } catch (error) {
     console.error("Error fetching user cart:", error);
     return [];
@@ -275,7 +281,9 @@ export const getUserWishlist = async (clerkUserId: string) => {
       query: USER_WISHLIST_QUERY,
       params: { clerkUserId },
     });
-    return data?.wishlist ?? [];
+
+    const result = data as { wishlist?: unknown[] } | null;
+    return result?.wishlist ?? [];
   } catch (error) {
     console.error("Error fetching user wishlist:", error);
     return [];
@@ -288,6 +296,7 @@ export const getUserOrders = async (clerkUserId: string) => {
       query: USER_ORDERS_QUERY,
       params: { clerkUserId },
     });
+
     return data ?? [];
   } catch (error) {
     console.error("Error fetching user orders:", error);
@@ -295,13 +304,70 @@ export const getUserOrders = async (clerkUserId: string) => {
   }
 };
 
-export const getOrderById = async (orderId: string) => {
+// Order result type
+type OrderByIdResult = {
+  _id: string;
+  orderNumber: string;
+  clerkUserId: string;
+  customerName: string;
+  email: string;
+  products: Array<{
+    product: {
+      _id: string;
+      name: string;
+      slug?: {
+        current: string;
+      };
+      images?: Array<{
+        asset?: {
+          _id?: string;
+          url?: string;
+        };
+      }>;
+      image?: {
+        asset: {
+          _id?: string;
+          url: string;
+        };
+      };
+      price: number;
+      currency: string;
+      categories?: Array<{
+        title: string;
+      }>;
+    };
+    quantity: number;
+  }>;
+  subtotal: number;
+  tax: number;
+  shipping: number;
+  totalPrice: number;
+  currency: string;
+  amountDiscount: number;
+  address: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  orderDate: string;
+  [key: string]: unknown;
+};
+
+export const getOrderById = async (
+  orderId: string
+): Promise<OrderByIdResult | null> => {
   try {
     const { data } = await sanityFetch({
       query: ORDER_BY_ID_QUERY,
       params: { orderId },
     });
-    return data;
+
+    return (data as OrderByIdResult | null) ?? null;
   } catch (error) {
     console.error("Error fetching order by ID:", error);
     return null;
@@ -332,7 +398,12 @@ export const getUserNotifications = async (clerkUserId: string) => {
       query: USER_NOTIFICATIONS_QUERY,
       params: { clerkUserId },
     });
-    return data?.notifications || [];
+
+    const result = data as {
+      notifications?: unknown[];
+    } | null;
+
+    return result?.notifications ?? [];
   } catch (error) {
     console.error("Error fetching user notifications:", error);
     return [];
@@ -346,22 +417,42 @@ export const MARK_NOTIFICATION_READ_QUERY = `
   }
 `;
 
+type UserNotification = {
+  id: string;
+  title?: string;
+  message?: string;
+  type?: string;
+  read?: boolean;
+  priority?: string;
+  sentAt?: string;
+  readAt?: string;
+  sentBy?: string;
+  actionUrl?: string;
+};
+
+type UserNotificationDocument = {
+  _id: string;
+  notifications?: UserNotification[];
+};
+
 export const markNotificationAsRead = async (
   clerkUserId: string,
   notificationId: string
 ) => {
   try {
-    const user = await sanityFetch({
+    const { data } = await sanityFetch({
       query: MARK_NOTIFICATION_READ_QUERY,
       params: { clerkUserId },
     });
 
-    if (!user.data) {
+    const user = data as UserNotificationDocument | null;
+
+    if (!user?._id) {
       throw new Error("User not found");
     }
 
-    const updatedNotifications = user.data.notifications.map(
-      (notification: any) => {
+    const updatedNotifications = (user.notifications ?? []).map(
+      (notification) => {
         if (notification.id === notificationId) {
           return {
             ...notification,
@@ -369,6 +460,7 @@ export const markNotificationAsRead = async (
             readAt: new Date().toISOString(),
           };
         }
+
         return notification;
       }
     );
@@ -376,14 +468,18 @@ export const markNotificationAsRead = async (
     const { writeClient } = await import("../lib/client");
 
     await writeClient
-      .patch(user.data._id)
+      .patch(user._id)
       .set({ notifications: updatedNotifications })
       .commit();
 
     return { success: true };
   } catch (error) {
     console.error("Error marking notification as read:", error);
-    return { success: false, error: "Failed to mark notification as read" };
+
+    return {
+      success: false,
+      error: "Failed to mark notification as read",
+    };
   }
 };
 
@@ -392,29 +488,35 @@ export const deleteUserNotification = async (
   notificationId: string
 ) => {
   try {
-    const user = await sanityFetch({
+    const { data } = await sanityFetch({
       query: MARK_NOTIFICATION_READ_QUERY,
       params: { clerkUserId },
     });
 
-    if (!user.data) {
+    const user = data as UserNotificationDocument | null;
+
+    if (!user?._id) {
       throw new Error("User not found");
     }
 
-    const updatedNotifications = user.data.notifications.filter(
-      (notification: any) => notification.id !== notificationId
+    const updatedNotifications = (user.notifications ?? []).filter(
+      (notification) => notification.id !== notificationId
     );
 
     const { writeClient } = await import("../lib/client");
 
     await writeClient
-      .patch(user.data._id)
+      .patch(user._id)
       .set({ notifications: updatedNotifications })
       .commit();
 
     return { success: true };
   } catch (error) {
     console.error("Error deleting notification:", error);
-    return { success: false, error: "Failed to delete notification" };
+
+    return {
+      success: false,
+      error: "Failed to delete notification",
+    };
   }
 };

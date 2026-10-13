@@ -1,5 +1,7 @@
+
 import { unstable_cache } from "next/cache";
 import { sanityFetch } from "../lib/live";
+import type { Category } from "@/sanity.types";
 import {
   ADDRESS_QUERY,
   ALL_PRODUCTS_QUERY,
@@ -22,16 +24,11 @@ import {
 import { getOrderById } from "./userQueries";
 
 // ============================================================================
-// CACHED DATA FETCHERS - Next.js 16 Caching Revolution
-// ============================================================================
-
-// ============================================================================
-// CACHED DATA FETCHERS - Next.js 16 Caching Revolution
+// CACHED DATA FETCHERS
 // ============================================================================
 
 /**
  * Get banner data - cached for 5 minutes
- * Banners change infrequently, safe to cache
  */
 const getBanner = unstable_cache(
   async () => {
@@ -49,7 +46,6 @@ const getBanner = unstable_cache(
 
 /**
  * Get featured categories - cached for 15 minutes
- * Featured categories are relatively static
  */
 const getFeaturedCategory = unstable_cache(
   async (quantity: number) => {
@@ -70,7 +66,6 @@ const getFeaturedCategory = unstable_cache(
 
 /**
  * Get all products - cached for 10 minutes
- * Product list updates moderately often
  */
 const getAllProducts = unstable_cache(
   async () => {
@@ -88,7 +83,6 @@ const getAllProducts = unstable_cache(
 
 /**
  * Get deal products - cached for 5 minutes
- * Deals may change frequently
  */
 const getDealProducts = unstable_cache(
   async () => {
@@ -106,7 +100,6 @@ const getDealProducts = unstable_cache(
 
 /**
  * Get featured products - cached for 10 minutes
- * Featured products are manually curated
  */
 const getFeaturedProducts = unstable_cache(
   async () => {
@@ -124,7 +117,6 @@ const getFeaturedProducts = unstable_cache(
 
 /**
  * Get all brands - cached for 1 hour
- * Brand list rarely changes
  */
 const getAllBrands = unstable_cache(
   async () => {
@@ -142,7 +134,6 @@ const getAllBrands = unstable_cache(
 
 /**
  * Get latest blogs - cached for 5 minutes
- * Blog content updates regularly
  */
 const getLatestBlogs = unstable_cache(
   async () => {
@@ -180,7 +171,6 @@ const getAllBlogs = unstable_cache(
 
 /**
  * Get single blog by slug - cached for 30 minutes
- * Individual blog posts don't change often
  */
 const getSingleBlog = unstable_cache(
   async (slug: string) => {
@@ -201,7 +191,6 @@ const getSingleBlog = unstable_cache(
 
 /**
  * Get blog categories - cached for 1 hour
- * Blog categories rarely change
  */
 const getBlogCategories = unstable_cache(
   async () => {
@@ -240,7 +229,7 @@ const getOthersBlog = unstable_cache(
 );
 
 /**
- * Get addresses - not cached (user-specific data)
+ * Get addresses - not cached
  */
 const getAddresses = async () => {
   try {
@@ -256,10 +245,9 @@ const getAddresses = async () => {
 
 /**
  * Get categories - cached for 15 minutes
- * Category structure is relatively static
  */
 const getCategories = unstable_cache(
-  async (quantity?: number) => {
+  async (quantity?: number): Promise<Category[]> => {
     try {
       const query = quantity
         ? `*[_type == 'category'] | order(name asc) [0...$quantity] {
@@ -276,7 +264,7 @@ const getCategories = unstable_cache(
         params: quantity ? { quantity } : {},
       });
 
-      return data ?? [];
+      return (data ?? []) as Category[];
     } catch (error) {
       console.log("Error fetching categories with product count:", error);
       return [];
@@ -287,11 +275,13 @@ const getCategories = unstable_cache(
 );
 
 /**
- * Get admin categories - not cached (admin data needs to be fresh)
+ * Get admin categories - not cached
  */
 const getAdminCategories = async () => {
   try {
-    const { data } = await sanityFetch({ query: ADMIN_CATEGORIES_QUERY });
+    const { data } = await sanityFetch({
+      query: ADMIN_CATEGORIES_QUERY,
+    });
     return data ?? [];
   } catch (error) {
     console.error("Error fetching admin categories:", error);
@@ -301,16 +291,13 @@ const getAdminCategories = async () => {
 
 /**
  * Get product by slug - cached for 30 minutes
- * Product details don't change frequently
  */
 const getProductBySlug = unstable_cache(
   async (slug: string) => {
     try {
       const product = await sanityFetch({
         query: PRODUCT_BY_SLUG_QUERY,
-        params: {
-          slug,
-        },
+        params: { slug },
       });
       return product?.data || null;
     } catch (error) {
@@ -324,16 +311,13 @@ const getProductBySlug = unstable_cache(
 
 /**
  * Get brand by slug - cached for 30 minutes
- * Brand info rarely changes
  */
 const getBrand = unstable_cache(
   async (slug: string) => {
     try {
       const product = await sanityFetch({
         query: BRAND_QUERY,
-        params: {
-          slug,
-        },
+        params: { slug },
       });
       return product?.data || null;
     } catch (error) {
@@ -347,10 +331,13 @@ const getBrand = unstable_cache(
 
 /**
  * Get related products - cached for 15 minutes
- * Related products are dynamic but can be cached briefly
  */
 const getRelatedProducts = unstable_cache(
-  async (categoryIds: string[], currentSlug: string, limit: number = 4) => {
+  async (
+    categoryIds: string[],
+    currentSlug: string,
+    limit: number = 4
+  ) => {
     try {
       const { data } = await sanityFetch({
         query: RELATED_PRODUCTS_QUERY,
