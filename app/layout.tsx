@@ -4,9 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import localFont from "next/font/local";
 import { Toaster } from "sonner";
 import Script from "next/script";
-import Head from "next/head";
 import { UserDataProvider } from "@/contexts/UserDataContext";
-import PremiumFloatingButton from "@/components/PremiumFloatingButton";
 import "./globals.css";
 
 const poppins = localFont({
@@ -15,6 +13,7 @@ const poppins = localFont({
   weight: "400",
   preload: false,
 });
+
 const raleway = localFont({
   src: "./fonts/Raleway.woff2",
   variable: "--font-raleway",
@@ -28,7 +27,7 @@ const opensans = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ShakilShoppro.reactbd.org"),
+  metadataBase: new URL("https://shakilshop44.vercel.app"),
   title: {
     template: "%s | ShakilShop - Premium Online Shopping",
     default: "ShakilShop - Your Trusted Online Shopping Destination",
@@ -58,7 +57,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://ShakilShoppro.reactbd.org",
+    url: "https://shakilshop44.vercel.app",
     siteName: "ShakilShop",
     title: "ShakilShop - Your Trusted Online Shopping Destination",
     description:
@@ -93,26 +92,23 @@ export const metadata: Metadata = {
   },
   verification: {
     google: "your-google-verification-code",
-    // Add other verification codes as needed
   },
   alternates: {
-    canonical: "https://ShakilShoppro.reactbd.org",
+    canonical: "https://shakilshop44.vercel.app",
   },
 };
 
-const RootLayout = async ({ children }: { children: ReactNode }) => {
-  const GADSENSE_CLIENT_ID = "ca-pub-6542623777003381"; // Define it once
+const RootLayout = ({ children }: { children: ReactNode }) => {
+  const GADSENSE_CLIENT_ID = "ca-pub-6542623777003381";
+
   return (
     <ClerkProvider>
       <html lang="en">
-        <Head>
-          <meta name="google-adsense-account" content={GADSENSE_CLIENT_ID} />
-        </Head>
         <body
           className={`${poppins.variable} ${raleway.variable} ${opensans.variable} antialiased`}
         >
           <UserDataProvider>{children}</UserDataProvider>
-          <PremiumFloatingButton />
+
           <Toaster
             position="bottom-right"
             richColors
@@ -141,3 +137,4 @@ const RootLayout = async ({ children }: { children: ReactNode }) => {
 };
 
 export default RootLayout;
+
