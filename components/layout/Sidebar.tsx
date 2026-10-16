@@ -38,9 +38,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { items, favoriteProduct } = useStore();
 
-  // Sidebar-এর বাইরে ক্লিক করলে বন্ধ হবে
   useEffect(() => {
     if (!isOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
 
     const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
       if (
@@ -51,20 +54,18 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       }
     };
 
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
+    document.addEventListener("keydown", handleEscape);
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("touchstart", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     return () => {
+      document.removeEventListener("keydown", handleEscape);
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("touchstart", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, onClose]);
 
@@ -86,8 +87,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   return (
     <div
       aria-hidden={!isOpen}
-      className={`fixed inset-0 z-[100] md:hidden ${
-        isOpen ? "visible" : "invisible pointer-events-none"
+      className={`fixed inset-0 z-[9999] md:hidden ${
+        isOpen
+          ? "visible pointer-events-auto"
+          : "invisible pointer-events-none"
       }`}
     >
       {/* Background overlay */}
@@ -107,24 +110,26 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         initial={false}
         animate={{ x: isOpen ? 0 : "-100%" }}
         transition={{ duration: 0.25, ease: "easeInOut" }}
-        className="absolute left-0 top-0 z-10 flex h-full w-[min(20rem,85vw)] flex-col overflow-y-auto bg-black p-5 text-white shadow-xl"
+        className="absolute left-0 top-0 z-[10000] flex h-[100dvh] w-[min(20rem,85vw)] flex-col overflow-y-auto bg-black p-5 text-white shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-700 pb-4">
-          <Logo />
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-700 pb-4">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <Logo />
+          </div>
 
           <button
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="flex h-10 w-10 items-center justify-center rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
-            <X size={22} />
+            <X size={24} />
           </button>
         </div>
 
         {/* Quick Access */}
-        <div className="mt-5">
+        <div className="mt-5 shrink-0">
           <h3 className="mb-3 text-sm font-semibold text-gray-400">
             Quick Access
           </h3>
@@ -145,9 +150,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               className="flex flex-col items-center gap-2 rounded-lg p-3 hover:bg-gray-800"
             >
               <Heart size={21} />
-              <span>
-                Wishlist ({favoriteProduct?.length ?? 0})
-              </span>
+              <span>Wishlist ({favoriteProduct?.length ?? 0})</span>
             </Link>
 
             <Link
@@ -162,7 +165,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </div>
 
         {/* Main Menu */}
-        <nav className="mt-6 space-y-1">
+        <nav className="mt-6 shrink-0 space-y-1">
           <h3 className="mb-3 text-sm font-semibold text-gray-400">
             Main Menu
           </h3>
@@ -190,7 +193,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </nav>
 
         {/* Categories */}
-        <div className="mt-6">
+        <div className="mt-6 shrink-0">
           <h3 className="mb-3 text-sm font-semibold text-gray-400">
             Categories
           </h3>
@@ -218,7 +221,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </div>
 
         {/* Support */}
-        <div className="mt-6 space-y-1">
+        <div className="mt-6 shrink-0 space-y-1">
           <h3 className="mb-3 text-sm font-semibold text-gray-400">
             Support
           </h3>
@@ -241,7 +244,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </div>
 
         {/* Social Media */}
-        <div className="mt-6 border-t border-gray-700 pt-5">
+        <div className="mt-6 shrink-0 border-t border-gray-700 pt-5">
           <SocialMedia />
         </div>
       </motion.div>
