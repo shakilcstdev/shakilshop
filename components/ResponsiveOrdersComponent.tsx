@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CreditCard, Eye, Download } from "lucide-react";
@@ -19,7 +20,6 @@ const ResponsiveOrdersComponent = ({
 }: {
   orders: MY_ORDERS_QUERYResult;
 }) => {
-  const [payingOrderId] = useState<string | null>(null);
   const [generatingInvoiceId, setGeneratingInvoiceId] = useState<string | null>(
     null
   );
@@ -28,25 +28,28 @@ const ResponsiveOrdersComponent = ({
     MY_ORDERS_QUERYResult[0] | null
   >(null);
 
-  // Helper function to render product images with stacked layout
+  // Render product images
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderProductImages = (products: any[], isCard = false) => {
-    if (!products || products.length === 0) return null;
+    if (!products || products.length === 0) {
+      return <span className="text-sm text-gray-400">No products</span>;
+    }
 
     const maxVisible = isCard ? 2 : 3;
     const displayProducts = products.slice(0, maxVisible);
-    const remainingCount = products.length - maxVisible;
-    const imageSize = isCard ? "w-10 h-10" : "w-8 h-8";
+    const remainingCount = Math.max(0, products.length - maxVisible);
+    const imageSize = isCard ? "h-10 w-10" : "h-8 w-8";
 
     return (
-      <div className="flex items-center">
-        <div className="flex items-center">
+      <div className="flex min-w-0 items-center">
+        <div className="flex min-w-0 items-center">
           {displayProducts.map((item, index) => {
             const imageUrl = item.product?.images?.[0] || item.product?.image;
+
             return (
               <div
                 key={index}
-                className={`relative ${imageSize} rounded-full overflow-hidden border-2 border-white shadow-sm bg-gray-100 ${
+                className={`relative ${imageSize} shrink-0 overflow-hidden rounded-full border-2 border-white bg-gray-100 shadow-sm ${
                   index > 0 ? "-ml-2" : ""
                 }`}
                 style={{ zIndex: 30 - index * 10 }}
@@ -56,19 +59,21 @@ const ResponsiveOrdersComponent = ({
                     src={urlFor(imageUrl).url()}
                     alt={item.product?.name || "Product"}
                     fill
+                    sizes={isCard ? "40px" : "32px"}
                     className="object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <div className="flex h-full w-full items-center justify-center bg-gray-200">
                     <span className="text-xs text-gray-500">?</span>
                   </div>
                 )}
               </div>
             );
           })}
+
           {remainingCount > 0 && (
             <div
-              className={`-ml-2 ${imageSize} rounded-full bg-gray-600 border-2 border-white shadow-sm flex items-center justify-center z-10`}
+              className={`-ml-2 ${imageSize} z-10 flex shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-600 shadow-sm`}
             >
               <span
                 className={`${
@@ -84,11 +89,11 @@ const ResponsiveOrdersComponent = ({
     );
   };
 
-  const handlePayNow = async (orderId: string) => {
+  const handlePayNow = (orderId: string) => {
     if (!orderId) return;
 
-    // Find the order to get details for the modal
-    const order = orders.find((o) => o._id === orderId);
+    const order = orders.find((item) => item._id === orderId);
+
     if (order) {
       setSelectedOrder(order);
       setPaymentModalOpen(true);
@@ -104,6 +109,7 @@ const ResponsiveOrdersComponent = ({
     if (!orderId) return;
 
     setGeneratingInvoiceId(orderId);
+
     try {
       const response = await fetch(`/api/orders/${orderId}/generate-invoice`, {
         method: "POST",
@@ -131,6 +137,7 @@ const ResponsiveOrdersComponent = ({
   const isOrderPayable = (order: MY_ORDERS_QUERYResult[number]) => {
     const isPaid = order.paymentStatus === PAYMENT_STATUSES.PAID;
     const isCancelled = order.status === ORDER_STATUSES.CANCELLED;
+
     return !isPaid && !isCancelled;
   };
 
@@ -141,139 +148,152 @@ const ResponsiveOrdersComponent = ({
       order.status === "delivered"
     ) {
       return "bg-green-100 text-green-800";
-    } else if (order.status === "cancelled") {
-      return "bg-red-100 text-red-800";
-    } else {
-      return "bg-yellow-100 text-yellow-800";
     }
+
+    if (order.status === "cancelled") {
+      return "bg-red-100 text-red-800";
+    }
+
+    return "bg-yellow-100 text-yellow-800";
   };
 
   const renderInvoiceSection = (order: MY_ORDERS_QUERYResult[number]) => {
     if (order?.invoice?.hosted_invoice_url) {
       return (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600 truncate">
-            {order?.invoice?.number || "INV-" + order.orderNumber?.slice(-6)}
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-sm text-gray-600">
+            {order.invoice.number || `INV-${order.orderNumber?.slice(-6)}`}
           </span>
+
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 w-6 p-0"
+            aria-label="Download invoice"
+            className="h-8 w-8 shrink-0 p-0"
             onClick={() => {
-              window.open(order.invoice?.hosted_invoice_url, "_blank");
+              window.open(
+                order.invoice?.hosted_invoice_url,
+                "_blank",
+                "noopener,noreferrer"
+              );
             }}
           >
-            <Download className="w-3 h-3" />
+            <Download className="h-4 w-4" />
           </Button>
         </div>
       );
-    } else if (order?.paymentStatus === "paid") {
+    }
+
+    if (order?.paymentStatus === "paid") {
       return (
         <Button
           size="sm"
           variant="outline"
-          className="h-6 px-2 text-xs"
+          className="h-8 px-2 text-xs"
           disabled={generatingInvoiceId === order._id}
           onClick={() => handleGenerateInvoice(order._id)}
         >
           {generatingInvoiceId === order._id ? (
             <>
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></div>
-              Gen...
+              <span className="mr-1 h-3 w-3 animate-spin rounded-full border-b-2 border-gray-600" />
+              Generating...
             </>
           ) : (
             "Generate"
           )}
         </Button>
       );
-    } else {
-      return <span className="text-xs text-gray-400">----</span>;
     }
+
+    return <span className="text-xs text-gray-400">----</span>;
   };
 
-  // Mobile Card View Component
+  // Mobile and tablet order card
   const OrderCard = ({ order }: { order: MY_ORDERS_QUERYResult[0] }) => (
-    <Card className="w-full shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+    <Card className="w-full min-w-0 max-w-full overflow-hidden border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1 flex-1 min-w-0">
-            <div className="font-medium text-sm truncate">
-              Order #{order.orderNumber?.slice(-10) ?? "N/A"}...
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="break-words text-sm font-medium">
+              Order #{order.orderNumber?.slice(-10) ?? "N/A"}
             </div>
+
             <div className="text-xs text-gray-500">
-              {order?.orderDate &&
+              {order.orderDate &&
                 format(new Date(order.orderDate), "dd/MM/yyyy")}
             </div>
           </div>
+
           <Badge
             className={`${getStatusBadgeVariant(
               order
-            )} text-xs font-medium px-2 py-1 rounded-full shrink-0 ml-2`}
+            )} ml-1 shrink-0 rounded-full px-2 py-1 text-xs font-medium`}
           >
-            {order?.status
+            {order.status
               ? order.status.charAt(0).toUpperCase() + order.status.slice(1)
               : "Pending"}
           </Badge>
         </div>
-      </CardHeader>{" "}
-      <CardContent className="space-y-4">
-        {/* Customer Info */}
-        <div className="flex items-center gap-2 text-sm">
-          <div className="font-medium">{order.customerName}</div>
-          <div className="text-gray-500">•</div>
-          <div className="text-gray-600 truncate">{order.email}</div>
+      </CardHeader>
+
+      <CardContent className="min-w-0 space-y-4">
+        {/* Customer information */}
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span className="min-w-0 max-w-full break-words font-medium">
+            {order.customerName || "Customer"}
+          </span>
+
+          {order.email && (
+            <span className="min-w-0 max-w-full break-all text-gray-600">
+              {order.email}
+            </span>
+          )}
         </div>
 
-        {/* Products */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* Products and total */}
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">Products:</span>
             {renderProductImages(order.products || [], true)}
           </div>
-          <div className="font-semibold">
-            <PriceFormatter amount={order?.totalPrice} className="text-black" />
+
+          <div className="shrink-0 font-semibold">
+            <PriceFormatter
+              amount={order.totalPrice}
+              className="text-black"
+            />
           </div>
         </div>
 
-        {/* Invoice Section */}
-        <div className="space-y-3 pt-2 border-t">
-          <div className="flex items-center gap-2">
+        {/* Invoice and actions */}
+        <div className="min-w-0 space-y-3 border-t pt-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">Invoice:</span>
             {renderInvoiceSection(order)}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
             <Button
               asChild
               variant="outline"
-              className="flex-1 sm:flex-none min-w-20 h-10"
+              className="h-11 w-full min-w-0 flex-1 sm:w-auto sm:flex-none"
             >
               <Link
                 href={`/user/orders/${order._id}`}
-                className="flex items-center justify-center"
+                className="flex w-full min-w-0 items-center justify-center gap-2"
               >
-                <Eye className="w-4 h-4 mr-2" />
-                <span className="text-sm">View</span>
+                <Eye className="h-4 w-4 shrink-0" />
+                <span className="text-sm">View Order</span>
               </Link>
             </Button>
+
             {isOrderPayable(order) && (
               <Button
                 onClick={() => handlePayNow(order._id)}
-                disabled={payingOrderId === order._id}
-                className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none min-w-[100px] h-10 touch-manipulation transition-all duration-200 shadow-sm hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="h-11 w-full min-w-0 flex-1 whitespace-nowrap bg-blue-600 text-white shadow-sm transition-colors hover:bg-blue-700 active:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto sm:flex-none"
               >
-                {payingOrderId === order._id ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    <span className="text-sm font-medium">Paying...</span>
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="w-4 h-4 mr-2 shrink-0" />
-                    <span className="text-sm font-medium">Pay Now</span>
-                  </>
-                )}
+                <CreditCard className="mr-2 h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">Pay Now</span>
               </Button>
             )}
           </div>
@@ -283,152 +303,150 @@ const ResponsiveOrdersComponent = ({
   );
 
   return (
-    <div>
-      {/* Payment Modal */}
-      {selectedOrder && selectedOrder._id && selectedOrder.orderNumber && (
-        <DirectPaymentModal
-          isOpen={paymentModalOpen}
-          onClose={handlePaymentModalClose}
-          orderId={selectedOrder._id}
-          orderTotal={selectedOrder.totalPrice || 0}
-          orderNumber={selectedOrder.orderNumber}
-        />
-      )}
+    <div className="w-full min-w-0 max-w-full">
+      {/* Payment modal */}
+      {selectedOrder &&
+        selectedOrder._id &&
+        selectedOrder.orderNumber && (
+          <DirectPaymentModal
+            isOpen={paymentModalOpen}
+            onClose={handlePaymentModalClose}
+            orderId={selectedOrder._id}
+            orderTotal={selectedOrder.totalPrice || 0}
+            orderNumber={selectedOrder.orderNumber}
+          />
+        )}
 
-      {/* Mobile Card View - Hidden on large screens */}
-      <div className="lg:hidden space-y-4">
+      {/* Mobile and tablet cards */}
+      <div className="grid w-full min-w-0 grid-cols-1 gap-4 lg:hidden">
         {orders.map((order) => (
           <OrderCard key={order._id} order={order} />
         ))}
       </div>
 
-      {/* Desktop Table View - Hidden on small screens */}
-      <div className="hidden lg:block">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Order #
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Date
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Customer
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Email
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Products
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Total
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Status
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Invoice
-                </th>
-                <th className="text-left py-3 px-2 font-medium text-sm text-gray-700">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr
-                  key={order._id}
-                  className="border-b hover:bg-gray-50 transition-colors"
-                >
-                  <td className="py-4 px-2">
-                    <div className="font-medium text-sm">
-                      {order.orderNumber?.slice(-10) ?? "N/A"}...
-                    </div>
-                  </td>
-                  <td className="py-4 px-2 text-sm">
-                    {order?.orderDate &&
-                      format(new Date(order.orderDate), "dd/MM/yyyy")}
-                  </td>
-                  <td className="py-4 px-2">
-                    <div className="font-medium text-sm">
-                      {order.customerName}
-                    </div>
-                  </td>
-                  <td className="py-4 px-2 text-sm text-gray-600">
-                    <div className="truncate max-w-40">{order.email}</div>
-                  </td>
-                  <td className="py-4 px-2">
-                    {renderProductImages(order.products || [])}
-                  </td>
-                  <td className="py-4 px-2">
-                    <PriceFormatter
-                      amount={order?.totalPrice}
-                      className="font-medium text-sm"
-                    />
-                  </td>
-                  <td className="py-4 px-2">
-                    <Badge
-                      className={`${getStatusBadgeVariant(
-                        order
-                      )} text-xs font-medium px-2 py-1 rounded-full`}
+      {/* Desktop table */}
+      <div className="hidden min-w-0 max-w-full overflow-x-auto lg:block">
+        <table className="w-full min-w-[900px] border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Order #
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Date
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Customer
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Email
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Products
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Total
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Status
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Invoice
+              </th>
+              <th className="px-2 py-3 text-left text-sm font-medium text-gray-700">
+                Actions
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {orders.map((order) => (
+              <tr
+                key={order._id}
+                className="border-b transition-colors hover:bg-gray-50"
+              >
+                <td className="px-2 py-4">
+                  <div className="break-words text-sm font-medium">
+                    {order.orderNumber?.slice(-10) ?? "N/A"}
+                  </div>
+                </td>
+
+                <td className="px-2 py-4 text-sm">
+                  {order.orderDate &&
+                    format(new Date(order.orderDate), "dd/MM/yyyy")}
+                </td>
+
+                <td className="px-2 py-4">
+                  <div className="text-sm font-medium">
+                    {order.customerName}
+                  </div>
+                </td>
+
+                <td className="max-w-40 px-2 py-4 text-sm text-gray-600">
+                  <div className="truncate">{order.email}</div>
+                </td>
+
+                <td className="px-2 py-4">
+                  {renderProductImages(order.products || [])}
+                </td>
+
+                <td className="px-2 py-4">
+                  <PriceFormatter
+                    amount={order.totalPrice}
+                    className="text-sm font-medium"
+                  />
+                </td>
+
+                <td className="px-2 py-4">
+                  <Badge
+                    className={`${getStatusBadgeVariant(
+                      order
+                    )} rounded-full px-2 py-1 text-xs font-medium`}
+                  >
+                    {order.status
+                      ? order.status.charAt(0).toUpperCase() +
+                        order.status.slice(1)
+                      : "Pending"}
+                  </Badge>
+                </td>
+
+                <td className="px-2 py-4">
+                  {renderInvoiceSection(order)}
+                </td>
+
+                <td className="px-2 py-4">
+                  <div className="flex items-center justify-start gap-2">
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="min-w-[70px] whitespace-nowrap"
                     >
-                      {order?.status
-                        ? order.status.charAt(0).toUpperCase() +
-                          order.status.slice(1)
-                        : "Pending"}
-                    </Badge>
-                  </td>
-                  <td className="py-4 px-2">{renderInvoiceSection(order)}</td>
-                  <td className="py-4 px-2">
-                    <div className="flex items-center justify-start gap-1 xl:gap-2">
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="min-w-[70px] xl:min-w-20"
+                      <Link
+                        href={`/user/orders/${order._id}`}
+                        className="flex items-center justify-center gap-1"
                       >
-                        <Link
-                          href={`/user/orders/${order._id}`}
-                          className="flex items-center justify-center"
-                        >
-                          <Eye className="w-3 h-3 xl:mr-1" />
-                          <span className="hidden xl:inline ml-1">View</span>
-                        </Link>
+                        <Eye className="h-3 w-3 shrink-0" />
+                        <span>View</span>
+                      </Link>
+                    </Button>
+
+                    {isOrderPayable(order) && (
+                      <Button
+                        onClick={() => handlePayNow(order._id)}
+                        size="sm"
+                        className="min-w-[100px] whitespace-nowrap bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        <CreditCard className="mr-1 h-3 w-3 shrink-0" />
+                        <span className="text-xs font-medium">Pay Now</span>
                       </Button>
-                      {isOrderPayable(order) && (
-                        <Button
-                          onClick={() => handlePayNow(order._id)}
-                          disabled={payingOrderId === order._id}
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed min-w-20 xl:min-w-[100px] touch-manipulation"
-                        >
-                          {payingOrderId === order._id ? (
-                            <>
-                              <div className="animate-spin rounded-full h-3 w-3 xl:mr-1"></div>
-                              <span className="hidden xl:inline ml-1 text-xs">
-                                Paying...
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <CreditCard className="w-3 h-3 xl:mr-1 shrink-0" />
-                              <span className="hidden xl:inline ml-1 text-xs font-medium">
-                                Pay Now
-                              </span>
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
