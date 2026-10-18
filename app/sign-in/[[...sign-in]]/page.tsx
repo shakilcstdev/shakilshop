@@ -3,14 +3,25 @@ import { SignIn } from "@clerk/nextjs";
 
 export default function SignInPage() {
   return (
-    <main className="flex min-h-screen w-full min-w-0 max-w-full items-center justify-center overflow-x-clip bg-gray-50 px-3 py-6 sm:px-6">
-      <div className="flex w-full min-w-0 max-w-full items-center justify-center">
+    <main className="min-h-screen w-full min-w-0 max-w-full overflow-x-hidden px-4 py-8 sm:px-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-md justify-center">
         <SignIn
           appearance={{
             elements: {
-              rootBox: "mx-auto w-full max-w-full",
-              cardBox: "w-full max-w-full",
-              card: "w-full max-w-full",
+              rootBox: {
+                width: "100%",
+                maxWidth: "100%",
+                marginInline: "auto",
+              },
+              cardBox: {
+                width: "100%",
+                maxWidth: "100%",
+              },
+              card: {
+                width: "100%",
+                maxWidth: "100%",
+                marginInline: "auto",
+              },
             },
           }}
         />
